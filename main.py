@@ -51,8 +51,12 @@ def main():
     if not clean_feedback_sections:
         raise ValueError("Feedback sections not found.")
 
-    os.makedirs("essays", exist_ok=True)
-    os.makedirs("essay_jsons", exist_ok=True)
+    # Create directories
+    base_dir = "essays"
+    text_dir = os.path.join(base_dir, "text")
+    json_dir = os.path.join(base_dir, "json")
+    os.makedirs(text_dir, exist_ok=True)
+    os.makedirs(json_dir, exist_ok=True)
 
     for i, (main_paragraph, review_section) in enumerate(zip(main_paragraphs, review_sections)):
         feedback_section = clean_feedback_sections.get(i)
@@ -75,7 +79,7 @@ def main():
             to_write += f"Why This Essay Needs Improvement (Negative Feedback):\n\n{feedback_section['Negative_Feedback']}\n\n"
 
         # Write to text file
-        with open(f"essays/essay_{i + 1}.txt", "w") as f:
+        with open(os.path.join(text_dir, f"essay_{i + 1}.txt"), "w") as f:
             f.write(to_write)
 
         # Prepare JSON data
@@ -88,7 +92,7 @@ def main():
         }
 
         # Write to JSON file
-        with open(f"essay_jsons/essay_{i + 1}.json", "w") as f:
+        with open(os.path.join(json_dir, f"essay_{i + 1}.json"), "w") as f:
             json.dump(essay_data, f, indent=4)
 
 if __name__ == "__main__":
