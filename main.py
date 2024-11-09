@@ -1,12 +1,10 @@
-from os import error
 import requests
 from bs4 import BeautifulSoup
 import os
-
+import json
 
 def main():
     url = "https://essaysthatworked.com/personal-statement-examples?utm_source=header"
-
     html = requests.get(url).text
     soup = BeautifulSoup(html, "html.parser")
     LIMIT = None
@@ -23,76 +21,75 @@ def main():
         limit=LIMIT,
     )
 
-    # Why It Works
-    # Only specific sections have this attribute so we define the array beforehand and then index accordingly
-    positive_feedback_sections = [1,2,3,4,6,7,8,9,11,12,13,14,16,18,19,20]
-    negative_feedback_sections = [2,6,7, 8,9, 10, 11, 12, 13, 14, 16, 19]
+    positive_feedback_sections = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14, 16, 18, 19, 20]
+    negative_feedback_sections = [2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19]
 
-    feedback_sections = (soup.find_all(
+    feedback_sections = soup.find_all(
         "ul",
         {"class": "text-base md:text-lg leading-7 md:leading-8 mb-8 list-none"},
-    ))
-
+    )
 
     clean_feedback_sections = {}
     for i in range(len(main_paragraphs)):
-        cleaned = ""
-        if i in positive_feedback_sections:
-            cleaned += "Positive Feedback: \n" + (feedback_sections.pop(0).get_text(separator=" ").strip()) + "\n\n"
-        if i in negative_feedback_sections:
-            cleaned += "Negative Feedback: \n" + (feedback_sections.pop(0).get_text(separator=" ").strip()) + "\n\n"
+        positive_feedback = ""
+        negative_feedback = ""
 
-        clean_feedback_sections[i] = cleaned
-    
+        if i in positive_feedback_sections:
+            positive_feedback = feedback_sections.pop(0).get_text(separator=" ").strip()
+        if i in negative_feedback_sections:
+            negative_feedback = feedback_sections.pop(0).get_text(separator=" ").strip()
+
+        clean_feedback_sections[i] = {
+            "Positive_Feedback": positive_feedback,
+            "Negative_Feedback": negative_feedback
+        }
 
     if not main_paragraphs:
-        error("Main paragraphs not found.")
+        raise ValueError("Main paragraphs not found.")
     if not review_sections:
-        error("Review sections not found.")
-    if not feedback_sections:
-        error("Feedback sections not found.")
+        raise ValueError("Review sections not found.")
+    if not clean_feedback_sections:
+        raise ValueError("Feedback sections not found.")
 
-    if not os.path.exists("essays"):
-        os.makedirs("essays")
+    os.makedirs("essays", exist_ok=True)
+    os.makedirs("essay_jsons", exist_ok=True)
 
-
-    for i, (main_paragraph, review_section) in enumerate(
-        zip(main_paragraphs, review_sections)
-    ):
+    for i, (main_paragraph, review_section) in enumerate(zip(main_paragraphs, review_sections)):
         feedback_section = clean_feedback_sections.get(i)
 
-        cur_essay = (
-            main_paragraph.find("div", {"class": "relative mt-8"})
-            .get_text(separator=" ")
-            .strip()
-        )
-
-        cur_prompt = (
-            main_paragraph.find(
-                "div",
-                {"class": "[&>p>strong]:font-bold"},
-            )
-            .get_text(separator=" ")
-            .strip()
-        )
-
+        cur_essay = main_paragraph.find("div", {"class": "relative mt-8"}).get_text(separator=" ").strip()
+        cur_prompt = main_paragraph.find("div", {"class": "[&>p>strong]:font-bold"}).get_text(separator=" ").strip()
         cur_review = review_section.get_text(separator=" ").strip()
 
+        # Prepare the text content
         to_write = (
-            "Prompt: \n\n"
-            + cur_prompt
-            + "\n\n Essay: \n\n"
-            + cur_essay
-            + "\n\n Review: \n\n"
-            + cur_review
+            f"Prompt:\n\n{cur_prompt}\n\n"
+            f"Essay:\n\n{cur_essay}\n\n"
+            f"Review:\n\n{cur_review}\n\n"
         )
+        
+        if feedback_section["Positive_Feedback"]:
+            to_write += f"Why This Essay Works (Positive Feedback):\n\n{feedback_section['Positive_Feedback']}\n\n"
+        
+        if feedback_section["Negative_Feedback"]:
+            to_write += f"Why This Essay Needs Improvement (Negative Feedback):\n\n{feedback_section['Negative_Feedback']}\n\n"
 
-        if feedback_section:
-            to_write += "\n\n Why This Essay Works \n\n"+ feedback_section
-
+        # Write to text file
         with open(f"essays/essay_{i + 1}.txt", "w") as f:
             f.write(to_write)
 
+        # Prepare JSON data
+        essay_data = {
+            "Prompt": cur_prompt,
+            "Essay": cur_essay,
+            "Review": cur_review,
+            "Positive_Feedback": feedback_section["Positive_Feedback"],
+            "Negative_Feedback": feedback_section["Negative_Feedback"]
+        }
+
+        # Write to JSON file
+        with open(f"essay_jsons/essay_{i + 1}.json", "w") as f:
+            json.dump(essay_data, f, indent=4)
 
 if __name__ == "__main__":
     exit(main())
